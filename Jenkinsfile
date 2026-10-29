@@ -2,57 +2,41 @@ pipeline {
     agent any
 
     environment {
-        GIT_REPOSITORY_URL = 'https://github.com/niranjanmore1/docker_jenkins_demo.git'
-        DOCKER_IMAGE_NAME = 'niranjanmore1/docker_jenkins_demo'
-        IMAGE_TAG = '1.0'
+        IMAGE_NAME = 'my-app'
+        IMAGE_TAG  = "${env.BUILD_NUMBER}"
     }
 
     stages {
-        stage('Clone Repository') {
+        stage('Checkout Code') {
             steps {
-                script {
-                    try {
-                        git branch: 'main', url: GIT_REPOSITORY_URL
-                    } catch (Exception e) {
-                        echo "Failed to clone repository: ${e.message}"
-                        error "Failed to clone repository"
-                    }
-                }
+                git branch: 'main',
+                    url: 'https://github.com/vedant1844/docker_jenkins_demo.git'
+                // For a private repo, add: credentialsId: 'github-credentials'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    try {
-                        docker.build("${DOCKER_IMAGE_NAME}:${IMAGE_TAG}")
-                    } catch (Exception e) {
-                        echo "Failed to build Docker image: ${e.message}"
-                        error "Failed to build Docker image"
-                    }
-                }
+                sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest .'
             }
         }
 
-        stage('Push to DockerHub') {
+        stage('Verify Image') {
             steps {
-                script {
-                    try {
-                        withCredentials([usernamePassword(credentialsId: 'my-docker-hub-credentials-id', 
-                                                         usernameVariable: 'DOCKER_USERNAME', 
-                                                         passwordVariable: 'DOCKER_PASSWORD')]) {
-                            // Explicit login before push
-                            sh """
-                            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                            docker push ${DOCKER_IMAGE_NAME}:${IMAGE_TAG}
-                            """
-                        }
-                    } catch (Exception e) {
-                        echo "Failed to push Docker image to registry: ${e.message}"
-                        error "Failed to push Docker image"
-                    }
-                }
+                sh 'docker images ${IMAGE_NAME}'
             }
+        }
+
+        stage('Build Message') {
+            steps {
+                echo "Build #${env.BUILD_NUMBER} completed. Image ${IMAGE_NAME}:${IMAGE_TAG} created."
+            }
+        }
+    }
+
+    post {
+        failure {
+            echo 'Build failed. Check the console output for details.'
         }
     }
 }
